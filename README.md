@@ -1,2 +1,3 @@
-# Safely-Swift
-Safely execute code without worry of app crashes.
+# safely-swift
+
+A description of this package.
