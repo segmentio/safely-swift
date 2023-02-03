@@ -6,7 +6,9 @@
 //
 
 import Foundation
+#if !os(Linux) && !os(Windows)
 import Internal
+#endif
 
 /// A options structure to control Safely's behavior.
 /// 
@@ -22,6 +24,7 @@ public struct SafelyOptions {
     static public var onError: ((Error) -> Void)? = nil
     /// Optionally log safe call errors to the developer console
     static public var logErrorsToConsole: Bool = false
+    #if !os(Linux) && !os(Windows)
     /// Capture all uncaught exceptions
     static public var onUncaughtException: ((Error) -> Void)? = nil {
         didSet {
@@ -36,6 +39,7 @@ public struct SafelyOptions {
             }
         }
     }
+    #endif
 }
 
 /// Call a closure safely, capturing any unhandled exceptions from Swift or Objective-C.
@@ -71,6 +75,7 @@ public func safely<T>(scenario: SafeScenario, context: T, closure: (T) throws ->
                 result = error
             }
         }
+        
         if let e = exception {
             // if we got an objc exception, put it into something usable for swift.
             result = ExceptionError(exception: e)
