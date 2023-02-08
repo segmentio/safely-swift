@@ -27,14 +27,35 @@ import Foundation
 public struct SafeScenario {
     public let description: String
     public let implementor: String
+    public init(description: String, implementor: String) {
+        self.description = description
+        self.implementor = implementor
+    }
 }
 
 /// Useful where no context is necessary for a safe call.
-public struct NoContext {}
+public struct NoContext {
+    public init() {}
+}
 
 extension SafeScenario: CustomStringConvertible, CustomDebugStringConvertible {
     public var debugDescription: String {
         return "\(description) implemented by \(implementor)"
+    }
+}
+
+public class SignalError: Error, CustomStringConvertible, CustomDebugStringConvertible {
+    public var description: String {
+        return debugDescription
+    }
+    
+    public var debugDescription: String {
+        return ""
+    }
+    
+    public let signal: Int32
+    public init(signal: Int32) {
+        self.signal = signal
     }
 }
 

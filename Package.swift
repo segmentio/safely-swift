@@ -13,10 +13,10 @@ let targets: [Target] = [
 let targets: [Target] = [
     .target(
         name: "Safely",
-        dependencies: ["Internal"]
+        dependencies: ["SafelyInternal"]
     ),
     .target(
-        name: "Internal"
+        name: "SafelyInternal"
     ),
 ]
 #endif

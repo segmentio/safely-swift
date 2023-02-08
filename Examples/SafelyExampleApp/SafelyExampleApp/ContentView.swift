@@ -21,11 +21,21 @@ struct ContentView: View {
             SafelyOptions.onUncaughtException = { error in
                 print("UNCAUGHT EXCEPTION!!! Oh noes, we got an error!!!")
             }
+            SafelyOptions.onSignals = { error in
+                print("SIGNAL: We got a signal! \(error)")
+            }
             
-            
-            DispatchQueue.main.async {
+            /*DispatchQueue.main.async {
                 sleep(5)
                 UserDefaults().set(NSNull(), forKey: "myKey")
+            }*/
+            DispatchQueue.main.async {
+                let scenario = SafeScenario(description: "blah", implementor: "bsneed")
+                let error = safely(scenario: scenario, context: NoContext()) { context in
+                    let s: String? = nil
+                    print(s!)
+                }
+                print(error as Any)
             }
         }
     }

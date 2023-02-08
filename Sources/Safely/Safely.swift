@@ -7,7 +7,7 @@
 
 import Foundation
 #if !os(Linux) && !os(Windows)
-import Internal
+import SafelyInternal
 #endif
 
 /// A options structure to control Safely's behavior.
@@ -20,26 +20,23 @@ import Internal
 /// }
 /// ```
 public struct SafelyOptions {
-    /// Called if an error happens in a safe call
-    static public var onError: ((Error) -> Void)? = nil
     /// Optionally log safe call errors to the developer console
     static public var logErrorsToConsole: Bool = false
+    /// Called if an error happens in a safe call
+    static public var onError: ((Error) -> Void)? = nil
     #if !os(Linux) && !os(Windows)
     /// Capture all uncaught exceptions
     static public var onUncaughtException: ((Error) -> Void)? = nil {
         didSet {
-            if onUncaughtException == nil {
-                SAClearUncaughtExceptionHandler()
-            } else {
-                SASetUncaughtExceptionHandler { exception in
-                    guard let handler = onUncaughtException else { return }
-                    let e = ExceptionError(exception: exception)
-                    handler(e)
-                }
-            }
+            updateUncaughtExceptionHandler(onUncaughtException)
         }
     }
     #endif
+    static public var onSignals: ((Error) -> Void)? = nil {
+        didSet {
+            updateSignalHandler(onSignals)
+        }
+    }
 }
 
 /// Call a closure safely, capturing any unhandled exceptions from Swift or Objective-C.
