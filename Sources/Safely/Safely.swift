@@ -1,93 +1,165 @@
 //
-//  Safely.swift
+//  File.swift
 //  
 //
-//  Created by Brandon Sneed on 1/30/23.
+//  Created by Brandon Sneed on 2/15/23.
 //
 
 import Foundation
-#if !os(Linux) && !os(Windows)
 import SafelyInternal
-#endif
 
-/// A options structure to control Safely's behavior.
-/// 
-/// Example:
-/// ```
-/// SafelyOptions.logErrorsToConsole = true
-/// SafelyOptions.onError = { error in
-///     print("ERROR: Oh noes, we got an error! \(error)")
-/// }
-/// ```
-public struct SafelyOptions {
+
+public class Safely {
     /// Optionally log safe call errors to the developer console
     static public var logErrorsToConsole: Bool = false
-    /// Called if an error happens in a safe call
+    /// Handle errors in a more global way; closure is executed when errors occur.
     static public var onError: ((Error) -> Void)? = nil
-    #if !os(Linux) && !os(Windows)
-    /// Capture all uncaught exceptions
-    static public var onUncaughtException: ((Error) -> Void)? = nil {
+    
+    static public var handleThrows: Bool = true 
+    static public var handleExceptions: Bool = true {
         didSet {
-            updateUncaughtExceptionHandler(onUncaughtException)
+            uncaughtExceptionHandler(enabled: handleExceptions)
         }
     }
-    #endif
-    static public var onSignals: ((Error) -> Void)? = nil {
+    
+    static public var handleSignals: Bool = false {
         didSet {
-            updateSignalHandler(onSignals)
+            // need this for execution stack unwind capabilities
+            exclusivityChecking(enable: handleSignals)
+            signalHandler(enabled: handleSignals)
         }
     }
-}
+    static public var handleAssertions: Bool = false {
+        didSet {
+            // need this for execution stack unwind capabilities
+            exclusivityChecking(enable: handleAssertions)
+            assertionHandler(enabled: true)
+        }
+    }
 
-/// Call a closure safely, capturing any unhandled exceptions from Swift or Objective-C.
-///
-/// Example:
-/// ```
-/// let context = UserDefaultsContext(userDefaults: UserDefaults(), valueToWrite: NSNull(), keyToWrite: "myNull")
-/// let error = safely(scenario: Scenarios.nullPListSettings, context: context) { context in
-///     let userDefaults = context.userDefaults
-///     userDefaults.set(context.valueToWrite, forKey: context.keyToWrite)
-/// }
-/// ```
-/// 
-/// - Parameters:
-///   - scenario: The scenario we're performing a safe call for.
-///   - context: A user defined structure containing the necessary elements for the closure to operate.
-///   - closure: The closure to execute safely; Accepts context as a parameter.
-/// - Returns: 
-///     An Error type or nil if there was no error.
-@discardableResult 
-public func safely<T>(scenario: SafeScenario, context: T, closure: (T) throws -> Void) -> Error? {
-    var result: Error? = nil
-    // I believe dispatch queue thread stacks get cleared between uses.
-    // What i'm not sure about is if this is overkill or not to protect our own thread stack.
-    // Thread/context switching has a performance cost.
-    DispatchQueue.global(qos: .utility).sync {
-        // captures an objc exception if it happens
-        let exception = SACatchException {
-            // captures a swift exception if it happens
+    @discardableResult
+    static public func call<T>(scenario: SafeScenario, context: T, _ closure: (T) throws -> Void) -> Error? {
+        let local = safelyThread
+        
+        executionBuffer.withUnsafeBytes { buffer in
+            let pointer = buffer.baseAddress!.assumingMemoryBound(to: jmp_buf.self)
+            local.stack.append(pointer.pointee)
+        }
+        
+        defer {
+            local.stack.removeLast()
+        }
+        
+        if setjump(&local.stack[local.stack.count - 1]) != 0 {
+            return local.error ?? NSError(domain: "Execution stack is empty!", code: -1)
+        }
+        
+        var result: Error? = nil
+        let runner: (((T) throws -> Void)) -> Void = { closure in
             do {
                 try closure(context)
             } catch {
-                result = error
+                if Safely.handleThrows {
+                    result = error
+                }
             }
         }
         
-        if let e = exception {
-            // if we got an objc exception, put it into something usable for swift.
-            result = ExceptionError(exception: e)
+        if Safely.handleExceptions {
+            let exception = SACatchException { runner(closure) }
+            if let e = exception {
+                result = ExceptionError(exception: e)
+            }
+        } else {
+            runner(closure)
+        }
+        
+        return result
+
+        /*do {
+            if Safely.handleExceptions {
+                if let exception = try SACatchException {
+                    try? closure(context)
+                }
+            } else {
+                try closure(context)
+            }
+        } catch {
+            return error
+        }
+        
+        return nil*/
+    }
+    
+    static public func catchCall<T>(scenario: SafeScenario, context: T, _ closure: (T) throws -> Void) throws {
+        if let e = call(scenario: scenario, context: context, closure) {
+            throw e
         }
     }
     
-    if let r = result {
-        // we got an error of some kind, respect the options.
-        if let onError = SafelyOptions.onError {
-            onError(r)
+    // MARK: - Internal
+    
+    internal required init() {}
+    
+    static var keyLock = OS_SPINLOCK_INIT
+    static private var pthreadKey: pthread_key_t = 0
+    static var threadKeyPointer: UnsafeMutablePointer<pthread_key_t> {
+        return UnsafeMutablePointer(&pthreadKey)
+    }
+
+    static var safelyThread: Self {
+        // We need a per-thread instance of Safely to store our execution stack.
+        // This accomplishes that task by setting an instance on the pthread itself
+        // and putting access to it in a lock.
+        let keyVar = threadKeyPointer
+        OSSpinLockLock(&keyLock)
+        // create a slot for our new key if we need to.
+        if keyVar.pointee == 0 {
+            let result = pthread_key_create(keyVar, {
+                Unmanaged<Safely>.fromOpaque($0).release()
+            })
+            if result != 0 {
+                fatalError("Could not pthread_key_create: \(String(cString: strerror(result)))")
+            }
         }
-        if SafelyOptions.logErrorsToConsole {
-            print("SAFE CALL FAILED: \nScenario: \(scenario.debugDescription)\n\(r)")
+        
+        defer {
+            // make sure we've set it below before we release the lock; tell
+            // this to run at the end via defer.
+            OSSpinLockUnlock(&keyLock)
+        }
+        
+        // see if we have an existing key holding our self value
+        if let existing = pthread_getspecific(keyVar.pointee) {
+            // we do, so return that.
+            return Unmanaged<Self>.fromOpaque(existing).takeUnretainedValue()
+        }
+        else {
+            // we have a key, but it's not set, so give it a value.
+            let unmanaged = Unmanaged.passRetained(Self())
+            let result = pthread_setspecific(keyVar.pointee, unmanaged.toOpaque())
+            if result != 0 {
+                fatalError("Could not pthread_setspecific: \(String(cString: strerror(result)))")
+            }
+            return unmanaged.takeUnretainedValue()
         }
     }
     
-    return result
+    internal var stack = [jmp_buf]()
+    internal var error: Error? = nil
+    
+    static internal let executionBuffer = [UInt8](repeating: 0, count: MemoryLayout<jmp_buf>.size)
+    
+    static internal func escape(error: Error) -> Never {
+        let local = safelyThread
+        local.error = error
+        
+        if local.stack.count == 0 {
+            // we have no execution stack for some reason.
+        }
+        
+        // we're going to unwind the execution stack back to the last known
+        // good place just before where we entered into escape.
+        longjump(&local.stack[local.stack.count - 1], 1)
+    }
 }
