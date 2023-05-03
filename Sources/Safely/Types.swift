@@ -50,7 +50,7 @@ public class SignalError: Error, CustomStringConvertible, CustomDebugStringConve
     }
     
     public var debugDescription: String {
-        return ""
+        return "SignalError: \(signal)"
     }
     
     public let signal: Int32
@@ -75,6 +75,28 @@ public class ExceptionError: Error, CustomStringConvertible, CustomDebugStringCo
     public let exception: NSException
     public init(exception: NSException) {
         self.exception = exception
+    }
+}
+
+public class AssertionError: Error, CustomStringConvertible, CustomDebugStringConvertible {
+    public var description: String {
+        return debugDescription
+    }
+    
+    public var debugDescription: String {
+        return "AssertionError: \(message) - Occurred at line \(line) in \(file)"
+    }
+    
+    public let file: String
+    public let line: UInt
+    public let message: String
+    public let prefix: String
+    
+    public init(prefix: String, message: String, file: String, line: UInt) {
+        self.prefix = prefix
+        self.message = message
+        self.file = file
+        self.line = line
     }
 }
 

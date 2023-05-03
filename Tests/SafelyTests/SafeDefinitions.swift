@@ -17,4 +17,8 @@ struct Scenarios {
         description: "Guard against a swift function throwing",
         implementor: "@bsneed"
     )
+    static let forceUnwrap = SafeScenario(
+        description: "Guard against a force unwrap (SIGTRAP)",
+        implementor: "@bsneed"
+    )
 }
