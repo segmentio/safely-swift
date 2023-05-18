@@ -90,3 +90,5 @@ fastlane/test_output
 iOSInjectionProject/
 
 Examples/SafelyExampleApp/.DS_Store
+
+.DS_Store
