@@ -75,20 +75,6 @@ public class Safely {
         }
         
         return result
-
-        /*do {
-            if Safely.handleExceptions {
-                if let exception = try SACatchException {
-                    try? closure(context)
-                }
-            } else {
-                try closure(context)
-            }
-        } catch {
-            return error
-        }
-        
-        return nil*/
     }
     
     static public func catchCall<T>(scenario: SafeScenario, context: T, _ closure: (T) throws -> Void) throws {

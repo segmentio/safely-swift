@@ -62,6 +62,7 @@ final class FunctionalTests: XCTestCase {
         }
         
         Safely.logErrorsToConsole = true
+        Safely.handleThrows = true
         Safely.onError = { error in
             print("ERROR: Oh noes, we got an error!")
         }
