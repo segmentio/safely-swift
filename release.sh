@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PROJECT_NAME="Safely-Swift"
+PROJECT_NAME="safely-swift"
 PRODUCT_NAME="Safely"
 
 LOWER_PRODUCT_NAME="$(echo ${PRODUCT_NAME} | tr '[:upper:]' '[:lower:]')"

@@ -3,7 +3,7 @@
 # Set Project name
 # These are the only variables that need to be set per-project, the rest
 # is very generic and should work for most things.
-PROJECT_NAME="Safely-Swift"
+PROJECT_NAME="safely-swift"
 PRODUCT_NAME="Safely"
 
 # Your PROJECT_NAME.xcodeproj should include schemes for
