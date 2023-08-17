@@ -1,10 +1,8 @@
 import XCTest
 @testable import Safely
-@testable import SafelyInternal
 
 final class FunctionalTests: XCTestCase {
     func testObjCExceptionScenario() throws {
-        
         Safely.logErrorsToConsole = true
         Safely.handleExceptions = true
         Safely.onError = { error in
@@ -28,7 +26,6 @@ final class FunctionalTests: XCTestCase {
     }
     
     func testObjCExceptionDisabledScenario() throws {
-        
         Safely.logErrorsToConsole = true
         Safely.handleExceptions = false
         Safely.onError = { error in

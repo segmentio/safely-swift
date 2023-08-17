@@ -1,4 +1,4 @@
-// Referred to by Safely.swift
+// Referred to by Safe.swift
 
 // DO NOT MODIFY THIS FILE BY HAND!!
 // DO NOT MODIFY THIS FILE BY HAND!!

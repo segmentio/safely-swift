@@ -6,8 +6,7 @@
 //
 
 import Foundation
-import SafelyInternal
-
+import os
 
 public class Safely {
     /// Optionally log safe call errors to the developer console
@@ -87,7 +86,7 @@ public class Safely {
     
     internal required init() {}
     
-    static var keyLock = OS_SPINLOCK_INIT
+    static var keyLock = UnfairLock()
     static private var pthreadKey: pthread_key_t = 0
     static var threadKeyPointer: UnsafeMutablePointer<pthread_key_t> {
         return UnsafeMutablePointer(&pthreadKey)
@@ -98,7 +97,7 @@ public class Safely {
         // This accomplishes that task by setting an instance on the pthread itself
         // and putting access to it in a lock.
         let keyVar = threadKeyPointer
-        OSSpinLockLock(&keyLock)
+        keyLock.lock()
         // create a slot for our new key if we need to.
         if keyVar.pointee == 0 {
             let result = pthread_key_create(keyVar, {
@@ -112,7 +111,7 @@ public class Safely {
         defer {
             // make sure we've set it below before we release the lock; tell
             // this to run at the end via defer.
-            OSSpinLockUnlock(&keyLock)
+            keyLock.unlock()
         }
         
         // see if we have an existing key holding our self value
@@ -141,11 +140,12 @@ public class Safely {
         local.error = error
         
         if local.stack.count == 0 {
-            // we have no execution stack for some reason.
+            // we have no execution stack for some reason... very unlikely, sun spots/flares?? :D 
+            longjump(&local.stack[0], 1)
+        } else {
+            // we're going to unwind the execution stack back to the last known
+            // good place just before where we entered into escape.
+            longjump(&local.stack[local.stack.count - 1], 1)
         }
-        
-        // we're going to unwind the execution stack back to the last known
-        // good place just before where we entered into escape.
-        longjump(&local.stack[local.stack.count - 1], 1)
     }
 }

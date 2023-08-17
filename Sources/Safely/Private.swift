@@ -1,14 +1,11 @@
 //
-//  File.swift
+//  Private.swift
 //  
 //
 //  Created by Brandon Sneed on 2/4/23.
 //
 
 import Foundation
-#if !os(Linux) && !os(Windows)
-import SafelyInternal
-#endif
 
 // MARK: Internal Swift stuff we need
 
@@ -17,6 +14,20 @@ public func setjump(_: UnsafeMutablePointer<jmp_buf>) -> Int32
 
 @_silgen_name ("longjmp")
 public func longjump(_: UnsafeMutablePointer<jmp_buf>, _: Int32) -> Never
+
+#if !os(Linux) && !os(Windows)
+import SafelyInternal
+public func SACatchException(_ block: () -> Void) -> NSException? {
+    return SafelyInternal.SACatchException {
+        block()
+    }
+}
+#else
+public func SACatchException(_ block: () -> Void) -> NSException? {
+    block()
+    return nil
+}
+#endif
 
 // MARK: Uncaught Exceptions
 
@@ -106,5 +117,32 @@ internal func exclusivityChecking(enable: Bool) {
     value.assumingMemoryBound(to: Bool.self).pointee = enable
 }
 
+// MARK: Locking
 
+import os.lock
+
+class UnfairLock {
+    func lock() {
+        os_unfair_lock_lock(oslock)
+    }
+    
+    func unlock() {
+        os_unfair_lock_unlock(oslock)
+    }
+    
+    func trylock() -> Bool {
+        return os_unfair_lock_trylock(oslock)
+    }
+    
+    let oslock = {
+        let lockPtr = UnsafeMutablePointer<os_unfair_lock>.allocate(capacity: 1)
+        lockPtr.initialize(to: .init())
+        return lockPtr
+    }()
+    
+    deinit {
+        oslock.deinitialize(count: 1)
+        oslock.deallocate()
+    }
+}
 

@@ -3,23 +3,25 @@
 
 import PackageDescription
 
-// #if os(Linux) || os(Windows)
-// let targets: [Target] = [
-//     .target(
-//         name: "Safely"
-//     )
-// ]
-// #else
-// let targets: [Target] = [
-//     .target(
-//         name: "Safely",
-//         dependencies: ["SafelyInternal"]
-//     ),
-//     .target(
-//         name: "SafelyInternal"
-//     ),
-// ]
-// #endif
+
+#if os(Linux) || os(Windows)
+let targets: [Target] = [
+    .target(
+        name: "Safely"
+    )
+]
+#else
+let targets: [Target] = [
+    .target(
+        name: "SafelyInternal"
+    ),
+    .target(
+        name: "Safely",
+        dependencies: ["SafelyInternal"]
+    ),
+]
+#endif
+
 
 let package = Package(
     name: "Safely",
@@ -30,7 +32,6 @@ let package = Package(
         .watchOS("7.1")
     ],
     products: [
-        // Products define the executables and libraries a package produces, and make them visible to other packages.
         .library(
             name: "Safely",
             targets: ["Safely"]),
@@ -39,11 +40,10 @@ let package = Package(
         // Dependencies declare other packages that this package depends on.
         // .package(url: /* package url */, from: "1.0.0"),
     ],
-    targets: [
-        .target(
-            name: "Safely",
-            dependencies: ["SafelyInternal"]),
-        .target(
-            name: "SafelyInternal"),
+    targets: targets + [
+        .testTarget(
+            name: "SafelyTests",
+            dependencies: ["Safely"]
+        )
     ]
 )
