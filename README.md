@@ -3,15 +3,23 @@
 
 Safely is a library intended to make calling system level, unknown, or 3rd party code a LITTLE bit safer.  It does so by catching any unhandled exceptions or throws and allow the caller to treat them as a Swift error and ignore, attempt to recover, or even just log the issue somewhere useful.
 
+There are extreme cases where sometimes an error just isn't predicted or can be reasonably handled without crashing.  Maybe it's writing to disk and the disk space is full?  Maybe a 3rd party library crashes if some calls are done out of order?  Either way, Safely provides a mechanism to help you get this information quickly and recover from it without crashing.  While you are still responsible for sending the information or storing it for when you actually can, Safely's call and catching capabilities can be enabled for all uncaught exceptions, throws, signals and assertions.
+
 ## Options
 
 Safely contains of high level options to assist in your development.
 
-`SafelyOptions.onError` can be optionally be set as a global handler for when errors are thrown or exceptions occur within a safe call.
+`Safely.onError` can be optionally be set as a global handler for when errors are thrown or exceptions occur within a safe call.
 
-`SafelyOptions.logErrorsToConsole` allows errors to be logged to the debug console.  It's default is `false`.
+`Safely.logErrorsToConsole` allows errors to be logged to the debug console.  The default is `false`.
 
-`SafelyOptions.onUncaughtException` can catch all system level exceptions.  While it's not able to recover, it at least gives a reporting mechism for you to use as needed.
+`Safely.handleThrows` specifies that unhandled throws that may occur are to be caught and treated as a failure of the safe call and prevent the app from crashing.  The errors thrown will be the same ones that are propogated back to `Safely.call` and `Safely.catchCall`.  The default value is `true`.
+
+`Safely.handleExceptions` specifies that unhandled ObjC exceptions are to be caught (on supported platforms) and treated as a failure of the safe call and prevent the app from crashing.  Exceptions will be propogated back as `ExceptionError`.  The default value is `true`.
+
+`Safely.handleSignals` specifies that unhandled signals are to be caught and treated as a failure of the safe call and prevent the app from crashing.  The signals that will be caught are SIGILL, SIGABRT, SIGTRAP and SIGALRM (in debug).  Signals will be propogated back as `SignalError`. The default value is `false`.
+
+`Safely.handleAssertions` specifies that any assertions (assert, assertionFailure, fatalAssertion, etc) will be caught and treated as a failure of the safe call, preventing the app from crashing.  Assertions will be propogated back as `AssertionError`.  The default value is `false`.
 
 ## Usage
 
@@ -41,7 +49,7 @@ struct UserDefaultsContext {
     let keyToWrite: String
 }
 let context = UserDefaultsContext(userDefaults: UserDefaults(), valueToWrite: NSNull(), keyToWrite: "myNull")
-let error = safely(scenario: Scenario.nullPListSettings, context: context) { context in
+let error = Safely.call(scenario: Scenario.nullPListSettings, context: context) { context in
     context.userDefaults.set(context.valueToWrite, forKey: context.keyToWrite)
 }
 
@@ -55,7 +63,7 @@ if let e = error {
 In cases where no context is necessary or needed, you can use the `NoContext()` dummy struct.  As mentioned above, the intent is to be explicit.  We want to communicate to the reader that no context was actually necessary rather than just passing nil.  ie: We thought about it and made a conscious decision that context wasn't neeed.
 
 ```swift
-let error = safely(scenario: Scenarios.dummyThrowingFunction, context: NoContext()) { context in
+let error = Safely.call(scenario: Scenarios.dummyThrowingFunction, context: NoContext()) { context in
     try myThrowingFunc()
 }
 ```
@@ -63,52 +71,33 @@ let error = safely(scenario: Scenarios.dummyThrowingFunction, context: NoContext
 It may be useful to treat all possible errors in the exact same way in some aspect.  `safely` is marked as having a discardable result, so we could instead do this:
 
 ```swift
-SafelyOptions.onError = { error in
+Safely.onError = { error in
     myAppLogging.log("ERROR: Oh noes, we got an error: \(error)")
 }
 
-...
+// some other code ...
  
-safely(scenario: Scenarios.dummyThrowingFunction, context: NoContext()) { context in
+Safely.call(scenario: Scenarios.dummyThrowingFunction, context: NoContext()) { context in
     try myThrowingFunc()
 }
 ```
 
 If we wanted to handle the error above in a special way, we could still do so, but the onError handler will do the logging that is desired on every error.
 
-There are extreme cases where sometimes an error just isn't predicted.  Maybe it's writing to disk and the disk space is full?  Maybe a 3rd party library crashes if some calls are done out of order?  Either way, a mechanism is provided to help you get this information quickly.  While you are still responsible for sending the information or storing it for when you actually can, a pass-through mechanism can be enabled for all uncaught exceptions.
+## Try/Catch
 
-```swift
-SafelyOptions.onUncaughtException = { error in
-    myAppLogging.fatal("UNCAUGHT EXCEPTION!!! This resulted in a crash on a users device: \(error)")
+In addition to `Safely.call`'s returned error, there's an alternative version that works exactly the same but provides a try/catch friendly interface.
+
+```
+do {
+    try Safely.catchCall(scenario: Scenarios.forceUnwrap, context: NoContext()) { context in
+        let s: String? = nil
+        print(s!)
+    }
+} catch {
+    print("\(error)")
 }
 ```
-
----
-
-MIT License
-
-Copyright (c) 2023 Segment
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-
 
 
 
