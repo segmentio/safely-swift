@@ -7,11 +7,11 @@ There are extreme cases where sometimes an error just isn't predicted or can be 
 
 ## Options
 
-Safely contains of high level options to assist in your development.
+Safely contains many high level options to assist in your development.
 
-`Safely.onError` can be optionally be set as a global handler for when errors are thrown or exceptions occur within a safe call.
+`Safely.onError` can be optionally set as a global handler for when errors are thrown or exceptions occur within a safe call.
 
-`Safely.logErrorsToConsole` allows errors to be logged to the debug console.  The default is `false`.
+`Safely.logErrorsToConsole` allows errors to be logged to the debug console.  The default value is `false`.
 
 `Safely.handleThrows` specifies that unhandled throws that may occur are to be caught and treated as a failure of the safe call and prevent the app from crashing.  The errors thrown will be the same ones that are propogated back to `Safely.call` and `Safely.catchCall`.  The default value is `true`.
 
