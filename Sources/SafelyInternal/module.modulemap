@@ -1,0 +1,6 @@
+module SafelyInternal {
+    header "include/ExceptionSafety.h"
+    header "include/fishhook.h"
+    export *
+}
+
